@@ -6,3 +6,4 @@ npm install http-proxy
 //2. 运行项目  
 node proxy.js  
 //3. 访问方式http://服务器ip:3000/?url=目标url  
+猪宝用来爬图片的无码垃圾  
