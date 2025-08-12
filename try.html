@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片跨域支持测试工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        success: '#10B981',
+                        danger: '#EF4444',
+                        neutral: '#6B7280'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .transition-height {
+                transition: max-height 0.3s ease-in-out;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-gray-800 mb-2">图片跨域支持测试工具</h1>
+            <p class="text-gray-600">检测图片URL是否配置了正确的CORS响应头，支持canvas处理</p>
+        </header>
+
+        <main class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div class="mb-6">
+                <label for="imageUrl" class="block text-sm font-medium text-gray-700 mb-2">图片URL:</label>
+                <div class="flex">
+                    <input 
+                        type="url" 
+                        id="imageUrl" 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                        placeholder="https://example.com/image.jpg"
+                        value="https://img2.baidu.com/it/u=4175182247,4053739859&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=667"
+                    >
+                    <button 
+                        id="testBtn" 
+                        class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-r-lg font-medium transition flex items-center"
+                    >
+                        <i class="fa fa-check mr-2"></i>测试
+                    </button>
+                </div>
+            </div>
+
+            <div id="loading" class="hidden text-center py-6">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                <p class="text-gray-600">正在测试跨域支持...</p>
+            </div>
+
+            <div id="result" class="hidden">
+                <div id="successResult" class="hidden border-l-4 border-success bg-green-50 p-4 rounded">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fa fa-check-circle text-success text-xl"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-success">跨域支持：成功</h3>
+                            <div class="mt-2 text-sm text-gray-700">
+                                <p>该图片服务器配置了正确的CORS响应头，可以通过canvas处理。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorResult" class="hidden border-l-4 border-danger bg-red-50 p-4 rounded">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fa fa-times-circle text-danger text-xl"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-danger">跨域支持：失败</h3>
+                            <div class="mt-2 text-sm text-gray-700">
+                                <p>该图片服务器未配置正确的CORS响应头，无法通过canvas处理。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-medium text-gray-800 mb-3 flex items-center">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>
+                        测试详情
+                    </h3>
+                    <pre id="details" class="text-sm text-gray-700 bg-gray-100 p-3 rounded overflow-x-auto max-h-60"></pre>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <h3 class="font-medium text-gray-800 mb-3">测试图片预览：</h3>
+                <div id="imagePreview" class="border border-gray-200 rounded-lg p-4 min-h-[100px] flex items-center justify-center bg-gray-50">
+                    <p class="text-gray-500 italic">测试后将显示图片预览</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center text-gray-500 text-sm">
+            <p>跨域测试工具 &copy; 2023 | 用于检测图片URL的CORS配置</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const imageUrlInput = document.getElementById('imageUrl');
+            const testBtn = document.getElementById('testBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const successResult = document.getElementById('successResult');
+            const errorResult = document.getElementById('errorResult');
+            const details = document.getElementById('details');
+            const imagePreview = document.getElementById('imagePreview');
+
+            testBtn.addEventListener('click', async () => {
+                const url = imageUrlInput.value.trim();
+                if (!url) {
+                    alert('请输入图片URL');
+                    return;
+                }
+
+                // 重置状态
+                loading.classList.remove('hidden');
+                result.classList.add('hidden');
+                successResult.classList.add('hidden');
+                errorResult.classList.add('hidden');
+                details.textContent = '';
+                imagePreview.innerHTML = '<p class="text-gray-500 italic">加载中...</p>';
+
+                try {
+                    const log = [];
+                    log.push(`开始测试: ${url}`);
+                    
+                    // 创建图片元素
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    
+                    // 记录图片加载过程
+                    const loadPromise = new Promise((resolve, reject) => {
+                        const timeoutId = setTimeout(() => {
+                            const errorMsg = '图片加载超时';
+                            log.push(errorMsg);
+                            reject(new Error(errorMsg));
+                        }, 10000);
+                        
+                        img.onload = () => {
+                            clearTimeout(timeoutId);
+                            log.push('图片加载完成');
+                            log.push(`图片尺寸: ${img.naturalWidth}x${img.naturalHeight}`);
+                            resolve(img);
+                        };
+                        
+                        img.onerror = (e) => {
+                            clearTimeout(timeoutId);
+                            const errorMsg = `图片加载失败: ${e.message || '未知错误'}`;
+                            log.push(errorMsg);
+                            reject(new Error(errorMsg));
+                        };
+                        
+                        img.src = url;
+                        log.push('已设置图片src，开始加载');
+                    });
+                    
+                    const imgLoaded = await loadPromise;
+                    
+                    // 显示图片预览
+                    imagePreview.innerHTML = '';
+                    const previewImg = document.createElement('img');
+                    previewImg.src = url;
+                    previewImg.alt = '测试图片预览';
+                    previewImg.classList.add('max-w-full', 'max-h-[300px]', 'rounded');
+                    imagePreview.appendChild(previewImg);
+                    
+                    // 尝试绘制到canvas并读取数据
+                    const canvas = document.createElement('canvas');
+                    canvas.width = imgLoaded.naturalWidth;
+                    canvas.height = imgLoaded.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    try {
+                        ctx.drawImage(imgLoaded, 0, 0);
+                        log.push('图片已成功绘制到canvas');
+                    } catch (e) {
+                        const errorMsg = `绘制到canvas失败: ${e.message}`;
+                        log.push(errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                    
+                    // 尝试转换为blob，检测canvas是否被污染
+                    await new Promise((resolve, reject) => {
+                        canvas.toBlob(blob => {
+                            if (!blob) {
+                                const errorMsg = 'canvas转换为blob失败，可能是跨域限制导致canvas被污染';
+                                log.push(errorMsg);
+                                reject(new Error(errorMsg));
+                                return;
+                            }
+                            
+                            log.push(`canvas成功转换为blob，大小: ${blob.size} bytes`);
+                            
+                            // 尝试读取blob内容
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                log.push(`成功读取图片数据，长度: ${reader.result.byteLength} bytes`);
+                                resolve();
+                            };
+                            reader.onerror = () => {
+                                const errorMsg = `读取blob失败: ${reader.error?.message || '未知错误'}`;
+                                log.push(errorMsg);
+                                reject(new Error(errorMsg));
+                            };
+                            reader.readAsArrayBuffer(blob);
+                        }, 'image/png');
+                    });
+                    
+                    // 如果所有步骤都成功
+                    log.push('测试完成: 该图片支持跨域访问');
+                    successResult.classList.remove('hidden');
+                    
+                } catch (error) {
+                    log.push(`测试失败: ${error.message}`);
+                    errorResult.classList.remove('hidden');
+                    
+                    // 仍然显示图片预览（即使无法通过canvas处理，也可能能显示）
+                    imagePreview.innerHTML = '';
+                    const previewImg = document.createElement('img');
+                    previewImg.src = url;
+                    previewImg.alt = '测试图片预览';
+                    previewImg.classList.add('max-w-full', 'max-h-[300px]', 'rounded');
+                    imagePreview.appendChild(previewImg);
+                    
+                } finally {
+                    loading.classList.add('hidden');
+                    result.classList.remove('hidden');
+                    details.textContent = log.join('\n');
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>
